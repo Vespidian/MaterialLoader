@@ -7,8 +7,12 @@ Material MaterialNew(void){
 
 }
 
-Material MaterialOpen(char *path){
+void MaterialShaderSet(Material *material, Shader *shader){
 	
+}
+
+Material MaterialOpen(char *path){
+
 }
 
 void MaterialFree(Material *material){
