@@ -21,7 +21,7 @@
 // #define SHADER_DEBUG
 
 // Only to be defined for testing the library (useful so valgrind doesnt show false leaks)
-#define SHADER_NOOPENGL
+// #define SHADER_NOOPENGL
 
 const char *shader_types[] = {
 	"UNDEFINED",

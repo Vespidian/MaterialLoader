@@ -42,8 +42,9 @@ typedef struct Material{
 Material MaterialOpen(char *path);
 void MaterialFree(Material *material);
 MaterialUniform *MaterialUniformGet(Material *material, char *uniform_name);
+void MaterialUniformsValidate(Material *material);
+void MaterialSetShader(Material *material, Shader *shader);
 void MaterialShaderSet(Material *material, Shader *shader);
-
 
 /*
 	=== PLAN ===

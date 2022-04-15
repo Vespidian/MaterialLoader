@@ -4,6 +4,7 @@
 
 #include "json_base.h"
 #include "shader.h"
+#include "bundle.h"
 
 
 #include "material.h"
@@ -145,7 +146,44 @@ static void tfunc_material(JSONState *json, unsigned int token){
 	}
 }
 
-extern Shader default_shader;
+void MaterialUniformsValidate(Material *material){
+	// Get rid of any uniforms that arent exposed or dont exist in the shader (useless uniforms)
+	// ^ OR we could set a boolean which says that this uniform doesnt exist (useful to warn people of mistakes)
+	if(material != NULL){
+		if(material->shader != NULL){
+			for(int i = 0; i < material->num_uniforms; i++){
+				int uniform_index = ShaderUniformFind(material->shader, material->uniforms[i].uniform_name);
+				// If Uniform doesnt exist in the shader OR material is not exposed in the shader.. This uniform is useless to us
+				if(uniform_index == -1 || !material->shader->uniforms[uniform_index].is_exposed){
+					DebugLog(D_WARN, "%s: Uniform '%s' does not exist or is not exposed within shader '%s'\n", material->path, material->uniforms[i].uniform_name, material->shader->path);
+
+					MaterialUniform *tmp_uniform = &material->uniforms[i];
+					free(tmp_uniform->uniform_name);
+					tmp_uniform->uniform_name = NULL;
+					free(tmp_uniform->texture_path);
+					tmp_uniform->texture_path = NULL;
+
+					memcpy(&material->uniforms[i], &material->uniforms[i + 1], sizeof(MaterialUniform) * (material->num_uniforms - i));
+
+					i--;
+					material->num_uniforms--;
+				}
+			}
+		}else{
+			DebugLog(D_ERR, "%s: Cannot validate uniforms, shader must first be set using 'MaterialSetShader'\n", material->path);
+		}
+	}
+}
+
+void MaterialSetShader(Material *material, Shader *shader){
+	if(material != NULL && shader != NULL){
+		if(strcmp(material->shader_path, shader->path) == 0){
+			material->shader = shader;
+		}else{
+			DebugLog(D_ERR, "%s: Trying to set material's shader to the incorrect shader (shader paths must match)\n", material->path);
+		}
+	}
+}
 
 Material MaterialOpen(char *path){
 	Material material = MaterialNew();
@@ -164,28 +202,10 @@ Material MaterialOpen(char *path){
 			JSONFree(&json);
 
 			if(material.shader_path != NULL){
-				// Find the specified shader and set the shader pointer
-				material.shader = &default_shader;
-
-				// Get rid of any uniforms that arent exposed or dont exist in the shader (useless uniforms)
-				// ^ OR we could set a boolean which says that this uniform doesnt exist (useful to warn people of mistakes)
-				for(int i = 0; i < material.num_uniforms; i++){
-					int uniform_index = ShaderUniformFind(material.shader, material.uniforms[i].uniform_name);
-					// If Uniform doesnt exist in the shader OR material is not exposed in the shader.. This uniform is useless to us
-					if(uniform_index == -1 || !material.shader->uniforms[uniform_index].is_exposed){
-						MaterialUniform *tmp_uniform = &material.uniforms[i];
-						free(tmp_uniform->uniform_name);
-						tmp_uniform->uniform_name = NULL;
-						free(tmp_uniform->texture_path);
-						tmp_uniform->texture_path = NULL;
-
-						memcpy(&material.uniforms[i], &material.uniforms[i + 1], sizeof(MaterialUniform) * (material.num_uniforms - i));
-
-						i--;
-						material.num_uniforms--;
-					}
-				}
-
+				/** 
+				 * Shader must be set after opening the material using 'MaterialSetShader' and then 
+				 * getting rid of / marking unused uniform with 'MaterialUniformsValidate'
+				 */
 				material.is_loaded = true;
 
 			}else{
