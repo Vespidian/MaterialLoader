@@ -4,12 +4,12 @@
 #include "shader.h"
 #include "vectorlib.h"
 
-enum PARAMETER{ UNI_BOOL = 0, UNI_INT, UNI_FLOAT, UNI_VEC2, UNI_VEC3, UNI_VEC4, UNI_SAMPLER1D, UNI_SAMPLER2D, UNI_SAMPLER3D};
+// enum PARAMETER{ UNI_BOOL = 0, UNI_INT, UNI_FLOAT, UNI_VEC2, UNI_VEC3, UNI_VEC4, UNI_SAMPLER1D, UNI_SAMPLER2D, UNI_SAMPLER3D};
 
-typedef struct MaterialParameter{
+typedef struct MaterialUniform{
 	char *uniform_name;
 
-
+	char *texture_path;
 
 	union{
 		bool _bool;
@@ -20,23 +20,33 @@ typedef struct MaterialParameter{
 		Vector4 _vec4;
 
 		// SAMPLERS GO HERE
+		int _sampler;
 	}value;
 
-}MaterialParameter;
+}MaterialUniform;
 
 typedef struct Material{
 	char *path;
 	char *name;
 
+	bool is_loaded;
+
 	char *shader_path;
 	Shader *shader;
 
 	unsigned int num_uniforms;
-	ShaderUniformObject *uniforms;
+	MaterialUniform *uniforms;
 }Material;
 
+
+Material MaterialOpen(char *path);
+void MaterialFree(Material *material);
+MaterialUniform *MaterialUniformGet(Material *material, char *uniform_name);
+void MaterialShaderSet(Material *material, Shader *shader);
+
+
 /*
-	+++ PLAN +++
+	=== PLAN ===
 
 	Start by finding the shader (deal with failure case) and setting the shader pointer
 	-> Every time we use the material, we check 'shader_path' against 'shader->path' to make sure the correct shader is loaded

@@ -5,34 +5,27 @@
 
 #include "debug.h"
 #include "shader.h"
+#include "material.h"
+
+Shader default_shader;
 
 int main(){
 	InitDebug();
 	
-	// for(int i = 0; i < 20; i++){
-		Shader default_shader = ShaderOpen("../assets/default.shader");
-		Shader axis_shader = ShaderOpen("../assets/axis.shader");
-		Shader grid_shader = ShaderOpen("../assets/grid.shader");
-		Shader mask_shader = ShaderOpen("../assets/mask.shader");
-		Shader mesh_shader = ShaderOpen("../assets/mesh.shader");
-		Shader quad_shader = ShaderOpen("../assets/quad_default.shader");
-		Shader ui_shader = ShaderOpen("../assets/ui.shader");
+	default_shader = ShaderOpen("../assets/default.shader");
+	Material default_material = MaterialOpen("../assets/default.mat");
 
+	printf("Tint.v[2] = %f\n", MaterialUniformGet(&default_material, "tint_u")->value._vec3.z);
 
+	MaterialShaderSet(&default_material, default_material.shader);
 
-		ShaderFree(&default_shader);
-		ShaderFree(&axis_shader);
-		ShaderFree(&grid_shader);
-		ShaderFree(&mask_shader);
-		ShaderFree(&mesh_shader);
-		ShaderFree(&quad_shader);
-		ShaderFree(&ui_shader);
-	// }
+	MaterialFree(&default_material);
+	ShaderFree(&default_shader);
 
 	DebugLog(D_ACT, "-- DONE-- ");
 	QuitDebug();
 
-	// getchar();
+	getchar();
 
 	return 0;
 }
