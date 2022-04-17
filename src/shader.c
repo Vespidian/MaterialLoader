@@ -21,7 +21,7 @@
 // #define SHADER_DEBUG
 
 // Only to be defined for testing the library (useful so valgrind doesnt show false leaks)
-// #define SHADER_NOOPENGL
+#define SHADER_NOOPENGL
 
 const char *shader_types[] = {
 	"UNDEFINED",
@@ -343,8 +343,22 @@ static void ShaderCompile(Shader *shader){
 static char *dict_uniform[] = {
 	"uniform",
 	"description",
+	"type",
 	"default",
 	"range",
+	NULL
+};
+
+static char *dict_uniform_types[] = {
+	"FLOAT",
+	"VEC2",
+	"VEC3",
+	"VEC4",
+	"INT",
+	"BOOL",
+	"SAMPLER1D",
+	"SAMPLER2D",
+	"SAMPLER3D",
 	NULL
 };
 
@@ -366,6 +380,8 @@ Shader *shader_ptr = NULL;
 					uniform_ptr->description = NULL;
 					uniform_ptr->uniform = -1;
 					uniform_ptr->is_exposed = true;
+					uniform_ptr->has_range = false;
+					uniform_ptr->is_uploaded = false;
 					uniform_ptr->type = UNI_FLOAT;
 					uniform_ptr->min = 0;
 					uniform_ptr->max = 0;
@@ -394,7 +410,39 @@ Shader *shader_ptr = NULL;
 							DebugLog(D_ACT, "Uniform description: '%s'", uniform_ptr->description);
 						#endif
 						break;
-					case 2: // default
+					case 2: // type
+						if(JSONTokenValue(json, token + 1).type == JSON_STRING){
+							char *string = NULL;
+							JSONTokenToString(json, token + 1, &string);
+
+							if(string != NULL){
+								// if(strncmp(string, "VEC", 3) == 0){
+								// 	if(string[3] > '1' && string[3] < '5'){
+								// 		uniform_ptr->type = UNI_VEC2 + string[3] - '2';
+								// 	}
+								// }else if
+								switch(JSONTokenHash(json, token + 1, dict_uniform_types)){
+									case 0: // FLOAT
+										uniform_ptr->type = UNI_FLOAT;
+										break;
+									case 1: // VEC2
+									case 2: // VEC3
+									case 3: // VEC4
+										uniform_ptr->type = UNI_VEC2 + string[3] - '2';
+										break;
+									case 4: // INT
+										uniform_ptr->type = UNI_INT;
+										break;
+									case 5: // BOOL
+										uniform_ptr->type = UNI_BOOL;
+										break;
+								}
+							}
+
+							free(string);
+						}
+						break;
+					case 3: // default
 						// Here we have to determine whether the input is one of the following (bool, int, float, vec2, vec3, vec4);
 						if(json->tokens[token + 1].type == JSMN_ARRAY){
 							// vector
@@ -428,7 +476,7 @@ Shader *shader_ptr = NULL;
 									break;
 								case JSON_INT:
 									uniform_ptr->type = UNI_INT;
-									uniform_ptr->value_default._int = token_value._bool;
+									uniform_ptr->value_default._int = token_value._int;
 									#ifdef SHADER_DEBUG
 										DebugLog(D_ACT, "%s: Uniform value: '%d'int", shader_ptr->path, uniform_ptr->value_default._int);
 									#endif
@@ -445,7 +493,7 @@ Shader *shader_ptr = NULL;
 							}
 						}
 						break;
-					case 3: // range
+					case 4: // range
 						// Allowed range for the value of the uniform (must be an array of length 2)
 						if((json->tokens[token + 1].type = JSMN_ARRAY) && (json->tokens[token + 1].size == 2)){
 							// TODO: Possibly add support for integer ranges as well
@@ -474,7 +522,7 @@ Shader *shader_ptr = NULL;
 								DebugLog(D_ACT, "Max: %f", uniform_ptr->max);
 							#endif
 
-
+							uniform_ptr->has_range = true;
 
 						}
 						break;
@@ -653,6 +701,11 @@ Shader ShaderOpen(char *path){
 				}
 			}
 
+			// Loop through exposed uniforms and set default values
+			for(int i = 0; i < shader.num_uniforms; i++){
+				memcpy(&shader.uniforms[i].value, &shader.uniforms[i].value_default, sizeof(shader.uniforms->value_default));
+			}
+
 			tmp_uniforms = NULL;
 			tmp_uniforms = realloc(shader.uniforms, sizeof(ShaderUniform) * (shader.num_uniforms + 1));
 			if(tmp_uniforms != NULL){
@@ -741,39 +794,62 @@ int ShaderUniformFind(Shader *shader, char *name){
 		}
 		printf("Couldn't find uniform '%s' in shader: '%s'\n", name, shader->name);
 	}
-	return -1;
+	return 0;
 }
+
+// typedef union ShaderUniformData{
+// 	bool _bool;
+// 	int _int;
+// 	float _float;
+
+// 	Vector2 _vec2;
+// 	Vector3 _vec3;
+// 	Vector4 _vec4;
+
+// 	mat2 _mat2;
+// 	mat3 _mat3;
+// 	mat4 _mat4;
+
+// 	int _sampler1d;
+// 	int _sampler2d;
+// 	int _sampler3d;
+// }ShaderUniformData;
+
+// void UniformSet(Shader *shader, UNIFORM_TYPE type, ShaderUniformData uniform_value){
+
+// }
 
 /* --- PRIMITIVES --- */
 
 
 void UniformSetBool(Shader *shader, char *uniform_name, bool value){
-	int uniform_index = ShaderUniformFind(shader, uniform_name);
-	if(uniform_index >= 0){
-		if(shader->uniforms[uniform_index].type == UNI_BOOL && (shader->uniforms[uniform_index].value._bool != value)){
-			shader->uniforms[uniform_index].value._bool = value;
-			shader->uniforms[uniform_index].is_uploaded = false;
-		}
+	ShaderUniform *uniform = &shader->uniforms[ShaderUniformFind(shader, uniform_name)];
+	if(uniform->type == UNI_BOOL && (uniform->value._bool != value)){
+		uniform->value._bool = value;
+		uniform->is_uploaded = false;
 	}
 }
 
 void UniformSetInt(Shader *shader, char *uniform_name, int value){
-	int uniform_index = ShaderUniformFind(shader, uniform_name);
-	if(uniform_index >= 0){
-		if(shader->uniforms[uniform_index].type == UNI_INT && (shader->uniforms[uniform_index].value._int != value)){
-			shader->uniforms[uniform_index].value._int = value;
-			shader->uniforms[uniform_index].is_uploaded = false;
-		}
+	ShaderUniform *uniform = &shader->uniforms[ShaderUniformFind(shader, uniform_name)];
+	if(uniform->type == UNI_INT && (uniform->value._int != value)){
+		uniform->value._int = value;
+		uniform->is_uploaded = false;
 	}
 }
 
 void UniformSetFloat(Shader *shader, char *uniform_name, float value){
-	int uniform_index = ShaderUniformFind(shader, uniform_name);
-	if(uniform_index >= 0){
-		if(shader->uniforms[uniform_index].type == UNI_FLOAT && (shader->uniforms[uniform_index].value._float != value)){
-			shader->uniforms[uniform_index].value._float = value;
-			shader->uniforms[uniform_index].is_uploaded = false;
+	ShaderUniform *uniform = &shader->uniforms[ShaderUniformFind(shader, uniform_name)];
+	if(uniform->type == UNI_FLOAT && (uniform->value._float != value)){
+		if(uniform->has_range){
+			if(value > uniform->max){
+				value = uniform->max;
+			}else if (value < uniform->min){
+				value = uniform->min;
+			}
 		}
+		uniform->value._float = value;
+		uniform->is_uploaded = false;
 	}
 }
 
@@ -785,66 +861,54 @@ void UniformSetFloat(Shader *shader, char *uniform_name, float value){
  */
 
 void UniformSetVec2(Shader *shader, char *uniform_name, vec2 value){
-	int uniform_index = ShaderUniformFind(shader, uniform_name);
-	if(uniform_index >= 0){
-		if(shader->uniforms[uniform_index].type == UNI_VEC2){
-			memcpy(shader->uniforms[uniform_index].value._vec2.v, value, sizeof(float) * 2);
-			shader->uniforms[uniform_index].is_uploaded = false;
-		}
+	ShaderUniform *uniform = &shader->uniforms[ShaderUniformFind(shader, uniform_name)];
+	if(uniform->type == UNI_VEC2){
+		memcpy(uniform->value._vec2.v, value, sizeof(float) * 2);
+		uniform->is_uploaded = false;
 	}
 }
 void UniformSetVec3(Shader *shader, char *uniform_name, vec3 value){
-	int uniform_index = ShaderUniformFind(shader, uniform_name);
-	if(uniform_index >= 0){
-		if(shader->uniforms[uniform_index].type == UNI_VEC3){
-			memcpy(shader->uniforms[uniform_index].value._vec3.v, value, sizeof(float) * 3);
-			shader->uniforms[uniform_index].is_uploaded = false;
-		}
+	ShaderUniform *uniform = &shader->uniforms[ShaderUniformFind(shader, uniform_name)];
+	if(uniform->type == UNI_VEC3){
+		memcpy(uniform->value._vec3.v, value, sizeof(float) * 3);
+		uniform->is_uploaded = false;
 	}
 }
 void UniformSetVec4(Shader *shader, char *uniform_name, vec4 value){
-	int uniform_index = ShaderUniformFind(shader, uniform_name);
-	if(uniform_index >= 0){
-		if(shader->uniforms[uniform_index].type == UNI_VEC4){
-			memcpy(shader->uniforms[uniform_index].value._vec4.v, value, sizeof(float) * 4);
-			shader->uniforms[uniform_index].is_uploaded = false;
-		}
+	ShaderUniform *uniform = &shader->uniforms[ShaderUniformFind(shader, uniform_name)];
+	if(uniform->type == UNI_VEC4){
+		memcpy(uniform->value._vec4.v, value, sizeof(float) * 4);
+		uniform->is_uploaded = false;
 	}
 }
 /* --- VECTOR (manual) --- */
 
 
 void UniformSetVec2_m(Shader *shader, char *uniform_name, float x, float y){
-	int uniform_index = ShaderUniformFind(shader, uniform_name);
-	if(uniform_index >= 0){
-		if(shader->uniforms[uniform_index].type == UNI_VEC2){
-			shader->uniforms[uniform_index].value._vec2.x = x;
-			shader->uniforms[uniform_index].value._vec2.y = y;
-			shader->uniforms[uniform_index].is_uploaded = false;
-		}
+	ShaderUniform *uniform = &shader->uniforms[ShaderUniformFind(shader, uniform_name)];
+	if(uniform->type == UNI_VEC2){
+		uniform->value._vec2.x = x;
+		uniform->value._vec2.y = y;
+		uniform->is_uploaded = false;
 	}
 }
 void UniformSetVec3_m(Shader *shader, char *uniform_name, float x, float y, float z){
-	int uniform_index = ShaderUniformFind(shader, uniform_name);
-	if(uniform_index >= 0){
-		if(shader->uniforms[uniform_index].type == UNI_VEC3){
-			shader->uniforms[uniform_index].value._vec3.x = x;
-			shader->uniforms[uniform_index].value._vec3.y = y;
-			shader->uniforms[uniform_index].value._vec3.z = z;
-			shader->uniforms[uniform_index].is_uploaded = false;
-		}
+	ShaderUniform *uniform = &shader->uniforms[ShaderUniformFind(shader, uniform_name)];
+	if(uniform->type == UNI_VEC3){
+		uniform->value._vec3.x = x;
+		uniform->value._vec3.y = y;
+		uniform->value._vec3.z = z;
+		uniform->is_uploaded = false;
 	}
 }
 void UniformSetVec4_m(Shader *shader, char *uniform_name, float x, float y, float z, float w){
-	int uniform_index = ShaderUniformFind(shader, uniform_name);
-	if(uniform_index >= 0){
-		if(shader->uniforms[uniform_index].type == UNI_VEC4){
-			shader->uniforms[uniform_index].value._vec4.x = x;
-			shader->uniforms[uniform_index].value._vec4.y = y;
-			shader->uniforms[uniform_index].value._vec4.z = z;
-			shader->uniforms[uniform_index].value._vec4.w = w;
-			shader->uniforms[uniform_index].is_uploaded = false;
-		}
+	ShaderUniform *uniform = &shader->uniforms[ShaderUniformFind(shader, uniform_name)];
+	if(uniform->type == UNI_VEC4){
+		uniform->value._vec4.x = x;
+		uniform->value._vec4.y = y;
+		uniform->value._vec4.z = z;
+		uniform->value._vec4.w = w;
+		uniform->is_uploaded = false;
 	}
 }
 
@@ -852,30 +916,24 @@ void UniformSetVec4_m(Shader *shader, char *uniform_name, float x, float y, floa
 
 
 void UniformSetMat2(Shader *shader, char *uniform_name, mat2 mat){
-	int uniform_index = ShaderUniformFind(shader, uniform_name);
-	if(uniform_index >= 0){
-		if(shader->uniforms[uniform_index].type == UNI_MAT2){
-			memcpy(shader->uniforms[uniform_index].value._mat2, mat[0], sizeof(float) * 4);
-			shader->uniforms[uniform_index].is_uploaded = false;
-		}
+	ShaderUniform *uniform = &shader->uniforms[ShaderUniformFind(shader, uniform_name)];
+	if(uniform->type == UNI_MAT2){
+		memcpy(uniform->value._mat2, mat[0], sizeof(float) * 4);
+		uniform->is_uploaded = false;
 	}
 }
 void UniformSetMat3(Shader *shader, char *uniform_name, mat3 mat){
-	int uniform_index = ShaderUniformFind(shader, uniform_name);
-	if(uniform_index >= 0){
-		if(shader->uniforms[uniform_index].type == UNI_MAT3){
-			memcpy(shader->uniforms[uniform_index].value._mat3, mat[0], sizeof(float) * 9);
-			shader->uniforms[uniform_index].is_uploaded = false;
-		}
+	ShaderUniform *uniform = &shader->uniforms[ShaderUniformFind(shader, uniform_name)];
+	if(uniform->type == UNI_MAT3){
+		memcpy(uniform->value._mat3, mat[0], sizeof(float) * 9);
+		uniform->is_uploaded = false;
 	}
 }
 void UniformSetMat4(Shader *shader, char *uniform_name, mat4 mat){
-	int uniform_index = ShaderUniformFind(shader, uniform_name);
-	if(uniform_index >= 0){
-		if(shader->uniforms[uniform_index].type == UNI_MAT4){
-			memcpy(shader->uniforms[uniform_index].value._mat4, mat[0], sizeof(float) * 16);
-			shader->uniforms[uniform_index].is_uploaded = false;
-		}
+	ShaderUniform *uniform = &shader->uniforms[ShaderUniformFind(shader, uniform_name)];
+	if(uniform->type == UNI_MAT4){
+		memcpy(uniform->value._mat4, mat[0], sizeof(float) * 16);
+		uniform->is_uploaded = false;
 	}
 }
 
@@ -883,29 +941,23 @@ void UniformSetMat4(Shader *shader, char *uniform_name, mat4 mat){
 
 
 void UniformSetSampler1D(Shader *shader, char *uniform_name, int sampler){
-	int uniform_index = ShaderUniformFind(shader, uniform_name);
-	if(uniform_index >= 0){
-		if(shader->uniforms[uniform_index].type == UNI_SAMPLER1D && (shader->uniforms[uniform_index].value._int != sampler)){
-			shader->uniforms[uniform_index].value._sampler1d = sampler;
-			shader->uniforms[uniform_index].is_uploaded = false;
-		}
+	ShaderUniform *uniform = &shader->uniforms[ShaderUniformFind(shader, uniform_name)];
+	if(uniform->type == UNI_SAMPLER1D && (uniform->value._int != sampler)){
+		uniform->value._sampler1d = sampler;
+		uniform->is_uploaded = false;
 	}
 }
 void UniformSetSampler2D(Shader *shader, char *uniform_name, int sampler){
-	int uniform_index = ShaderUniformFind(shader, uniform_name);
-	if(uniform_index >= 0){
-		if(shader->uniforms[uniform_index].type == UNI_SAMPLER2D && (shader->uniforms[uniform_index].value._int != sampler)){
-			shader->uniforms[uniform_index].value._sampler2d = sampler;
-			shader->uniforms[uniform_index].is_uploaded = false;
-		}
+	ShaderUniform *uniform = &shader->uniforms[ShaderUniformFind(shader, uniform_name)];
+	if(uniform->type == UNI_SAMPLER2D && (uniform->value._int != sampler)){
+		uniform->value._sampler2d = sampler;
+		uniform->is_uploaded = false;
 	}
 }
 void UniformSetSampler3D(Shader *shader, char *uniform_name, int sampler){
-	int uniform_index = ShaderUniformFind(shader, uniform_name);
-	if(uniform_index >= 0){
-		if(shader->uniforms[uniform_index].type == UNI_SAMPLER3D && (shader->uniforms[uniform_index].value._int != sampler)){
-			shader->uniforms[uniform_index].value._sampler3d = sampler;
-			shader->uniforms[uniform_index].is_uploaded = false;
-		}
+	ShaderUniform *uniform = &shader->uniforms[ShaderUniformFind(shader, uniform_name)];
+	if(uniform->type == UNI_SAMPLER3D && (uniform->value._int != sampler)){
+		uniform->value._sampler3d = sampler;
+		uniform->is_uploaded = false;
 	}
 }

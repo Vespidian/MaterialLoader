@@ -64,7 +64,7 @@ typedef struct ShaderUniform{
 	// 	int _int;
 	// 	float _float;
 	// }max;
-
+	bool has_range;
 	float min, max;
 }ShaderUniform;
 
