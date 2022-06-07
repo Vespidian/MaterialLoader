@@ -17,8 +17,10 @@ int main(){
 
 	printf("Tint.v[2] = %f\n", MaterialUniformGet(&default_material, "tint_u")->value._vec3.z);
 
-	MaterialSetShader(&default_material, &default_shader);
-	MaterialShaderSet(&default_material);
+	MaterialShaderSet(&default_material, &default_shader);
+	MaterialShaderPassUniforms(&default_material);
+
+	MaterialReload(&default_material);
 
 	MaterialFree(&default_material);
 	ShaderFree(&default_shader);

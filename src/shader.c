@@ -738,12 +738,15 @@ Shader ShaderOpen(char *path){
 	return shader;
 }
 
-void ShaderSet(Shader *shader){
-	if(current_shader != shader->id){
-		#ifndef SHADER_NOOPENGL
-			glUseProgram(shader->id);
-		#endif
-		current_shader = shader->id;
+void ShaderReload(Shader *shader){
+	if(shader != NULL){
+		char *path = malloc(strlen(shader->path) + 1);
+		memcpy(path, shader->path, strlen(shader->path));
+		path[strlen(shader->path)] = 0;
+
+		ShaderFree(shader);
+		*shader = ShaderOpen(path);
+		free(path);
 	}
 }
 
@@ -780,6 +783,15 @@ void ShaderFree(Shader *shader){
 		shader->stages = NULL;
 
 		shader->is_loaded = false;
+	}
+}
+
+void ShaderSet(Shader *shader){
+	if(current_shader != shader->id){
+		#ifndef SHADER_NOOPENGL
+			glUseProgram(shader->id);
+		#endif
+		current_shader = shader->id;
 	}
 }
 
