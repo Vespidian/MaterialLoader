@@ -50,52 +50,70 @@ Shader ShaderNew(){
 	return shader;
 }
 
+static ShaderUniform UniformNew(){
+	ShaderUniform uniform;
+	uniform.name = NULL;
+	uniform.description = NULL;
+	uniform.uniform = -1;
+	uniform.is_exposed = true;
+	uniform.has_range = false;
+	uniform.is_uploaded = false;
+	uniform.type = UNI_FLOAT;
+	uniform.min = 0;
+	uniform.max = 0;
+	uniform.value_default._float = 0;
+	uniform.value._float = 0;
+	return uniform;
+}
+
 void ShaderPassUniforms(Shader *shader){
 	ShaderSet(shader);
 
 	for(int i = 0; i < shader->num_uniforms; i++){
 		if(!shader->uniforms[i].is_uploaded){
-			switch(shader->uniforms[i].type){
-				case UNI_BOOL:
-					glUniform1i(shader->uniforms[i].uniform, (int)shader->uniforms[i].value._bool);
-					break;
-				case UNI_INT:
-					glUniform1i(shader->uniforms[i].uniform, (int)shader->uniforms[i].value._int);
-					break;
-				case UNI_FLOAT:
-					glUniform1f(shader->uniforms[i].uniform, shader->uniforms[i].value._float);
-					break;
+			#ifndef SHADER_NOOPENGL
+				switch(shader->uniforms[i].type){
+					case UNI_BOOL:
+						glUniform1i(shader->uniforms[i].uniform, (int)shader->uniforms[i].value._bool);
+						break;
+					case UNI_INT:
+						glUniform1i(shader->uniforms[i].uniform, (int)shader->uniforms[i].value._int);
+						break;
+					case UNI_FLOAT:
+						glUniform1f(shader->uniforms[i].uniform, shader->uniforms[i].value._float);
+						break;
 
-				case UNI_VEC2:
-					glUniform2fv(shader->uniforms[i].uniform, 1, shader->uniforms[i].value._vec2.v);
-					break;
-				case UNI_VEC3:
-					glUniform3fv(shader->uniforms[i].uniform, 1, shader->uniforms[i].value._vec3.v);
-					break;
-				case UNI_VEC4:
-					glUniform4fv(shader->uniforms[i].uniform, 1, shader->uniforms[i].value._vec4.v);
-					break;
+					case UNI_VEC2:
+						glUniform2fv(shader->uniforms[i].uniform, 1, shader->uniforms[i].value._vec2.v);
+						break;
+					case UNI_VEC3:
+						glUniform3fv(shader->uniforms[i].uniform, 1, shader->uniforms[i].value._vec3.v);
+						break;
+					case UNI_VEC4:
+						glUniform4fv(shader->uniforms[i].uniform, 1, shader->uniforms[i].value._vec4.v);
+						break;
 
-				case UNI_MAT2:
-					glUniformMatrix2fv(shader->uniforms[i].uniform, 1, GL_FALSE, shader->uniforms[i].value._mat2[0]);
-					break;
-				case UNI_MAT3:
-					glUniformMatrix3fv(shader->uniforms[i].uniform, 1, GL_FALSE, shader->uniforms[i].value._mat3[0]);
-					break;
-				case UNI_MAT4:
-					glUniformMatrix4fv(shader->uniforms[i].uniform, 1, GL_FALSE, shader->uniforms[i].value._mat4[0]);
-					break;
+					case UNI_MAT2:
+						glUniformMatrix2fv(shader->uniforms[i].uniform, 1, GL_FALSE, shader->uniforms[i].value._mat2[0]);
+						break;
+					case UNI_MAT3:
+						glUniformMatrix3fv(shader->uniforms[i].uniform, 1, GL_FALSE, shader->uniforms[i].value._mat3[0]);
+						break;
+					case UNI_MAT4:
+						glUniformMatrix4fv(shader->uniforms[i].uniform, 1, GL_FALSE, shader->uniforms[i].value._mat4[0]);
+						break;
 
-				case UNI_SAMPLER1D:
-					glUniform1i(shader->uniforms[i].uniform, shader->uniforms[i].value._sampler1d);
-					break;
-				case UNI_SAMPLER2D:
-					glUniform1i(shader->uniforms[i].uniform, shader->uniforms[i].value._sampler2d);
-					break;
-				case UNI_SAMPLER3D:
-					glUniform1i(shader->uniforms[i].uniform, shader->uniforms[i].value._sampler3d);
-					break;
-			}
+					case UNI_SAMPLER1D:
+						glUniform1i(shader->uniforms[i].uniform, shader->uniforms[i].value._sampler1d);
+						break;
+					case UNI_SAMPLER2D:
+						glUniform1i(shader->uniforms[i].uniform, shader->uniforms[i].value._sampler2d);
+						break;
+					case UNI_SAMPLER3D:
+						glUniform1i(shader->uniforms[i].uniform, shader->uniforms[i].value._sampler3d);
+						break;
+				}
+			#endif
 			shader->uniforms[i].is_uploaded = true;
 		}
 	}
@@ -136,13 +154,7 @@ static void ShaderStageParseUniforms(Shader *shader, unsigned int stage_id){
 			if(tmp_uniforms != NULL){
 				stage_ptr->uniforms = tmp_uniforms;
 
-				stage_ptr->uniforms[stage_ptr->num_uniforms].name = NULL;
-				stage_ptr->uniforms[stage_ptr->num_uniforms].description = NULL;
-				stage_ptr->uniforms[stage_ptr->num_uniforms].is_exposed = false;
-				stage_ptr->uniforms[stage_ptr->num_uniforms].is_uploaded = false;
-				stage_ptr->uniforms[stage_ptr->num_uniforms].uniform = -1;
-				stage_ptr->uniforms[stage_ptr->num_uniforms].value_default._float = 0;
-				stage_ptr->uniforms[stage_ptr->num_uniforms].type = UNI_FLOAT;
+				stage_ptr->uniforms[stage_ptr->num_uniforms] = UniformNew();
 
 				source_ptr = strchr(source_ptr, ' ') + 1;
 
@@ -336,7 +348,7 @@ static void ShaderCompile(Shader *shader){
 			DebugLog(D_ACT, "%s: Compilation successfull!\n", shader->path);
 		}
 	#else
-		DebugLog(D_ACT, "%s: Shader compilation failed: Since 'SHADER_NOOPENGL' is defined, no opengl functions will be called\n");
+		DebugLog(D_ACT, "%s: Shader compilation failed: Since 'SHADER_NOOPENGL' is defined, no opengl functions will be called\n", shader->path);
 	#endif
 }
 
@@ -376,17 +388,7 @@ Shader *shader_ptr = NULL;
 					stage_ptr->uniforms = tmp_uniforms;
 					uniform_ptr = &stage_ptr->uniforms[stage_ptr->num_uniforms];
 
-					uniform_ptr->name = NULL;
-					uniform_ptr->description = NULL;
-					uniform_ptr->uniform = -1;
-					uniform_ptr->is_exposed = true;
-					uniform_ptr->has_range = false;
-					uniform_ptr->is_uploaded = false;
-					uniform_ptr->type = UNI_FLOAT;
-					uniform_ptr->min = 0;
-					uniform_ptr->max = 0;
-					uniform_ptr->value_default._float = 0;
-					uniform_ptr->value._float = 0;
+					*uniform_ptr = UniformNew();
 
 					JSONSetTokenFunc(json, NULL, tfunc_uniforms);
 					JSONParse(json);

@@ -1,6 +1,6 @@
 {
 	name: "Default Material",
-	shader: "shaders/default.shader",
+	shader: "../assets/default.shader",
 	uniforms: [
 		{
 			name: "albedo_tex",

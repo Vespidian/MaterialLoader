@@ -20,7 +20,9 @@ int main(){
 	MaterialShaderSet(&default_material, &default_shader);
 	MaterialShaderPassUniforms(&default_material);
 
-	MaterialReload(&default_material);
+	for(int i = 0; i < 100; i++){
+		MaterialReload(&default_material);
+	}
 
 	MaterialFree(&default_material);
 	ShaderFree(&default_shader);
