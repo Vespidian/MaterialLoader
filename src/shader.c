@@ -20,9 +20,6 @@
 // Prints out everything as it happens
 // #define SHADER_DEBUG
 
-// Only to be defined for testing the library (useful so valgrind doesnt show false leaks)
-#define SHADER_NOOPENGL
-
 const char *shader_types[] = {
 	"UNDEFINED",
 	"VERTEX",
@@ -71,7 +68,7 @@ void ShaderPassUniforms(Shader *shader){
 
 	for(int i = 0; i < shader->num_uniforms; i++){
 		if(!shader->uniforms[i].is_uploaded){
-			#ifndef SHADER_NOOPENGL
+			#ifndef NOOPENGL
 				switch(shader->uniforms[i].type){
 					case UNI_BOOL:
 						glUniform1i(shader->uniforms[i].uniform, (int)shader->uniforms[i].value._bool);
@@ -266,7 +263,7 @@ static void ShaderStageParseUniforms(Shader *shader, unsigned int stage_id){
 }
 
 static void ShaderCompile(Shader *shader){
-	#ifndef SHADER_NOOPENGL
+	#ifndef NOOPENGL
 		shader->id = glCreateProgram();
 		for(int i = 0; i < shader->num_stages; i++){
 			#ifdef SHADER_DEBUG
@@ -348,7 +345,7 @@ static void ShaderCompile(Shader *shader){
 			DebugLog(D_ACT, "%s: Compilation successfull!\n", shader->path);
 		}
 	#else
-		DebugLog(D_ACT, "%s: Shader compilation failed: Since 'SHADER_NOOPENGL' is defined, no opengl functions will be called\n", shader->path);
+		DebugLog(D_ACT, "%s: Shader compilation failed: Since 'NOOPENGL' is defined, no opengl functions will be called\n", shader->path);
 	#endif
 }
 
@@ -721,7 +718,7 @@ Shader ShaderOpen(char *path){
 				ShaderCompile(&shader);
 
 				for(int i = 0; i < shader.num_uniforms; i++){
-					#ifndef SHADER_NOOPENGL
+					#ifndef NOOPENGL
 						shader.uniforms[i].uniform = glGetUniformLocation(shader.id, shader.uniforms[i].name);
 					#endif
 				}
@@ -755,7 +752,7 @@ void ShaderReload(Shader *shader){
 void ShaderFree(Shader *shader){
 	if(shader != NULL){
 		// Free VRAM data
-		#ifndef SHADER_NOOPENGL
+		#ifndef NOOPENGL
 			GLCall(glDeleteProgram(shader->id));
 		#endif
 
@@ -777,7 +774,7 @@ void ShaderFree(Shader *shader){
 
 			free(shader->stages[i].uniforms);
 			shader->stages[i].uniforms = NULL;
-			#ifndef SHADER_NOOPENGL
+			#ifndef NOOPENGL
 				GLCall(glDeleteShader(shader->stages[i].gl_id));
 			#endif
 		}
@@ -790,7 +787,7 @@ void ShaderFree(Shader *shader){
 
 void ShaderSet(Shader *shader){
 	if(current_shader != shader->id){
-		#ifndef SHADER_NOOPENGL
+		#ifndef NOOPENGL
 			glUseProgram(shader->id);
 		#endif
 		current_shader = shader->id;

@@ -7,11 +7,6 @@
 
 #include "material.h"
 
-#define MATERIAL_NOOPENGL
-#ifdef MATERIAL_NOOPENGL
-	#define SHADER_NOOPENGL
-#endif
-
 Material *material_ptr = NULL;
 
 Material MaterialNew(void){
