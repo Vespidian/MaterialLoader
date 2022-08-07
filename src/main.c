@@ -15,9 +15,10 @@ int main(){
 	default_shader = ShaderOpen("../assets/default.shader");
 	Material default_material = MaterialOpen("../assets/default.mat");
 
-	printf("Tint.v[2] = %f\n", MaterialUniformGet(&default_material, "tint_u")->value._vec3.z);
+	printf("Tint.v[2] = %f\n", MaterialUniformFind(&default_material, "tint_u")->value._vec3.z);
 
 	MaterialShaderSet(&default_material, &default_shader);
+	MaterialUniformsValidate(&default_material);
 	MaterialShaderPassUniforms(&default_material);
 
 	for(int i = 0; i < 100; i++){
